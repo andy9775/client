@@ -368,21 +368,26 @@ func (cki ComputedKeyInfos) InsertServerEldestKey(eldestKey GenericKey, un Norma
 }
 
 func (ckf ComputedKeyFamily) InsertEldestLink(tcl TypedChainLink, username NormalizedUsername) (err error) {
-	kid := tcl.GetKID()
 	ckf.G().Log.Debug("ComputedKeyFamily#InsertEldestLink %s", tcl.ToDebugString())
+
+	kid := tcl.GetKID()
+	sigid := tcl.GetSigID()
+	tm := TclToKeybaseTime(tcl)
+
 	_, err = ckf.FindKeyWithKIDUnsafe(kid)
 	if err != nil {
 		return
 	}
 
-	// We don't need to check the signature on the first link, because
-	// verifySubchain will take care of that.
-	ctime := tcl.GetCTime().Unix()
-	etime := tcl.GetETime().Unix()
+	mhm, err := tcl.GetMerkleHashMeta()
+	if err != nil {
+		return err
+	}
 
-	eldestCki := NewComputedKeyInfo(kid, true, true, KeyUncancelled, ctime, etime, tcl.GetPGPFullHash())
+	ckf.cki.Delegate(kid, tm, sigid, tcl.GetKID(), tcl.GetParentKid(),
+		tcl.GetPGPFullHash(), (tcl.GetRole() == DLGSibkey), tcl.GetCTime(), tcl.GetETime(),
+		mhm, tcl.GetFirstAppearedMerkleSeqnoUnverified(), tcl.ToSigChainLocation())
 
-	ckf.cki.Insert(&eldestCki)
 	return nil
 }
 
